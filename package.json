@@ -7,7 +7,7 @@
     "build": "tsc",
     "clean": "node ./scripts/clean.js",
     "reinstall": "node ./scripts/reinstall.js",
-    "reinstall-force": "node ./scripts/reinstall.js -c",
+    "reinstall-f": "node ./scripts/reinstall.js -c",
     "prettify": "npx prettier --config .prettierrc --write .",
     "check": "npx eslint -c eslint.config.mjs .",
     "check-fix": "npx eslint -c eslint.config.mjs --fix .",
