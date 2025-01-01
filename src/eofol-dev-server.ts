@@ -1,6 +1,12 @@
+import { primary, success } from "./util/chalk"
 import connect from "connect"
 import cors from "cors"
 import httpAuth from "http-auth"
+import Watchpack from "watchpack"
+
+// @ts-ignore
+// eslint-disable-next-line no-unused-vars
+type Middleware = (req, res, next: () => void) => void
 
 interface EofolDevServerOptions {
   root?: string
@@ -22,8 +28,7 @@ interface EofolDevServerOptions {
   mount?: string
   htpasswd?: string
   httpsModule?: string
-  // eslint-disable-next-line no-unused-vars
-  middleware?: ((file: string, next: (nextFile: string) => void) => void)[]
+  middleware?: Middleware[]
 }
 
 const OPTIONS_DEFAULT: EofolDevServerOptions = {
@@ -76,7 +81,6 @@ const start = (options: EofolDevServerOptions): void => {
     try {
       require.resolve(optionsImpl.httpsModule)
     } catch (e) {
-      // @TODO CHANGEIT
       console.error(`The specified https module: "${optionsImpl.httpsModule}" was not found.`)
       console.error("Did you forget to run " + `"npm install ${optionsImpl.httpsModule}"?`)
       return
@@ -118,9 +122,70 @@ const start = (options: EofolDevServerOptions): void => {
 
   // Handle upgrade
 
-  // Watch
+  const watchOptions = {
+    aggregateTimeout: 250,
+    poll: true,
+    followSymlinks: true,
+    ignored: "**/.git",
+  }
 
-  // Handle exit
+  const DIRNAME_SRC = "src"
+
+  const listOfDirectories = [DIRNAME_SRC]
+
+  const SERVE_URL = `${optionsImpl.https ? "https" : "http"}://${optionsImpl.host}:${optionsImpl.port}`
+
+  const recompile = async () => {
+    console.log(primary("Recompiling..."))
+    // @TODO Do we need this?
+    // cleanHot()
+    // return await compile(true).then(() => {
+    console.log(success(`Recompiled! Servin app now at ${SERVE_URL}.`))
+    // })
+  }
+
+  const handleChange = async () => {
+    await recompile()
+  }
+
+  const handleRemove = async () => {
+    await recompile()
+  }
+
+  const listOfFiles: string[] = []
+  const listOfNotExistingItems: string[] = []
+
+  // @TODO Differentiate dev || serve
+  console.log(primary("Starting the development server..."))
+
+  const wp = new Watchpack(watchOptions)
+
+  const handleClose = () => {
+    // @TODO Differentiate dev || serve
+    console.log(primary("\nShutting down development server..."))
+    wp.close()
+    // @TODO Differentiate dev || serve
+    console.log(primary("Development server shut down."))
+    process.exit(0)
+  }
+
+  process.on("SIGINT", handleClose)
+  process.on("SIGTERM", handleClose)
+  process.on("SIGQUIT", handleClose)
+
+  wp.watch({
+    files: listOfFiles,
+    directories: listOfDirectories,
+    missing: listOfNotExistingItems,
+    startTime: Date.now() - 10000,
+  })
+
+  wp.on("change", handleChange)
+  wp.on("remove", handleRemove)
+
+  console.log(success(`Serving app now at ${SERVE_URL}.`))
 }
+
+// Handle exit (connect)
 
 export default start
