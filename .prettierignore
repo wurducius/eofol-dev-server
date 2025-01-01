@@ -1,0 +1,7 @@
+node_modules/
+derived/
+dist/
+dist2/
+build/
+
+.idea/

@@ -1,0 +1,60 @@
+{
+  "name": "eofol-dev-server",
+  "version": "0.0.1",
+  "description": "Web development server for React and Eofol with hot reload",
+  "main": "dist/eofol-dev-server.js",
+  "scripts": {
+    "build": "tsc",
+    "clean": "node ./scripts/clean.js",
+    "reinstall": "node ./scripts/reinstall.js",
+    "reinstall-force": "node ./scripts/reinstall.js -c",
+    "prettify": "npx prettier --config .prettierrc --write .",
+    "check": "npx eslint -c eslint.config.mjs .",
+    "check-fix": "npx eslint -c eslint.config.mjs --fix .",
+    "lint": "npm run check-fix && npm run prettify"
+  },
+  "dependencies": {
+    "bluebird": "^3.7.2",
+    "connect": "^3.7.0",
+    "cors": "^2.8.5",
+    "https": "^1.0.0",
+    "stompjs-nodejs": "^0.0.3",
+    "watchpack": "^2.4.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^8.56.0",
+    "@types/eslint__js": "^8.42.3",
+    "@types/node": "^22.10.3",
+    "chalk": "2.4.2",
+    "cross-spawn": "^7.0.3",
+    "eslint": "^8.56.0",
+    "http-auth": "^4.2.0",
+    "open": "^10.1.0",
+    "prettier": "3.3.3",
+    "rimraf": "^6.0.1",
+    "typescript": "5.5.4",
+    "typescript-eslint": "^8.19.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wurducius/eofol-dev-server.git"
+  },
+  "keywords": [
+    "Web",
+    "dev",
+    "server",
+    "dev",
+    "server",
+    "hot",
+    "reload",
+    "hot-reload",
+    "eofol",
+    "react"
+  ],
+  "author": "Jakub Eliáš <wurducius@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/wurducius/eofol-dev-server/issues"
+  },
+  "homepage": "https://github.com/wurducius/eofol-dev-server#readme"
+}
