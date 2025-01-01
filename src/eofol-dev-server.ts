@@ -1,7 +1,7 @@
+// @ts-ignore
 import { read, stat, primary, success } from "./util"
 import connect from "connect"
 import cors from "cors"
-import httpAuth from "http-auth"
 import Watchpack from "watchpack"
 import path from "node:path"
 import url from "url"
@@ -157,7 +157,8 @@ const start = (options: EofolDevServerOptions): void => {
         }
       }
 
-      send(req, reqpath, { root: root })
+      // @TODO
+      send(req, reqpath ?? "", { root: root })
         .on("error", error)
         .on("directory", directory)
         .on("file", file)
@@ -189,6 +190,8 @@ const start = (options: EofolDevServerOptions): void => {
   // Serve directory listing on empty root
 
   if (optionsImpl.cors) {
+    // @TODO
+    // @ts-ignore
     app.use(cors)({
       origin: true,
       credentials: true,
@@ -208,14 +211,12 @@ const start = (options: EofolDevServerOptions): void => {
   }
 
   if (optionsImpl.htpasswd) {
-    app.use(
-      httpAuth.connect(
-        httpAuth.basic({
-          realm: "Please authorize",
-          file: optionsImpl.htpasswd,
-        }),
-      ),
-    )
+    const auth = require("http-auth")
+    const basic = auth.basic({
+      realm: "Please authorize",
+      file: optionsImpl.htpasswd,
+    })
+    app.use(auth.connect(basic))
   }
 
   // @TODO
@@ -253,7 +254,9 @@ const start = (options: EofolDevServerOptions): void => {
   app
     .use(serveHandler)
     .use(entryPoint(serveHandler, optionsImpl.fallback))
-    .use(serveIndex(optionsImpl.root, { icons: true }))
+    // @TODO
+    // @ts-ignore
+    .use(serveIndex(optionsImpl.root ?? "./", { icons: true }))
 
   let server
   let protocol
