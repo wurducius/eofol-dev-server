@@ -1,7 +1,10 @@
+const fs = require("fs")
 const { resolve } = require("path")
 const { execSync, spawn } = require("child_process")
-const { PATH_CWD, rm, exists } = require("../eofol")
-const { spawnOptions } = require("./impl/options")
+const { rm, exists } = require("../src/util/fs")
+const { spawnOptions } = require("./options")
+
+const PATH_CWD = fs.realpathSync(process.cwd())
 
 const PATH_PACKAGE_LOCK = resolve(PATH_CWD, "package-lock.json")
 const PATH_NODE_MODULES = resolve(PATH_CWD, "node_modules")
