@@ -1,5 +1,4 @@
-const fs = require("fs")
-const PATH_CWD = fs.realpathSync(process.cwd())
+const { PATH_CWD } = require("../src/util")
 
 const spawnOptions = {
   encoding: "utf8",

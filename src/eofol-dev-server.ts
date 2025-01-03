@@ -1,16 +1,16 @@
 // @ts-ignore
 import { read, stat, primary, success } from "./util"
 import connect from "connect"
-import cors from "cors"
-import Watchpack from "watchpack"
-import path from "node:path"
-import url from "url"
-import * as fs from "node:fs"
 import es from "event-stream"
-import send from "send"
+import fs from "node:fs"
 import http from "http"
+import os from "node:os"
+import path from "node:path"
+import send from "send"
 import serveIndex from "serve-index"
-import * as os from "node:os"
+import url from "url"
+import Watchpack from "watchpack"
+import { readFileSync } from "fs"
 
 const FILENAME_HOOKED_HTML = "hooked.html"
 
@@ -18,14 +18,13 @@ const FILENAME_HOOKED_HTML = "hooked.html"
 // eslint-disable-next-line no-unused-vars
 type Middleware = (req, res, next: () => void) => void
 
-interface EofolDevServerOptions {
+export interface EofolDevServerOptions {
   root?: string
   watch?: string[]
   serveUrl?: string | string[]
   entry?: string
   fallback?: string
   ignore?: string[]
-  ignorePattern?: string[]
   host?: string
   port?: number
   https?: boolean
@@ -38,7 +37,6 @@ interface EofolDevServerOptions {
   logLevel?: number
   mount?: string[]
   htpasswd?: string
-  httpsModule?: string
   middleware?: Middleware[]
 }
 
@@ -49,20 +47,18 @@ const OPTIONS_DEFAULT: EofolDevServerOptions = {
   entry: "index.html",
   fallback: undefined,
   ignore: [],
-  ignorePattern: [],
-  host: "0.0.0.0",
+  host: "localhost",
   port: 3000,
-  https: false,
+  https: true,
   browser: undefined,
   open: true,
   wait: 150,
-  cors: true,
+  // cors: true,
   proxy: undefined,
   noCSSInject: false,
   logLevel: 3,
-  mount: ["./node_modules/"],
+  mount: ["./node_modules"],
   htpasswd: undefined,
-  httpsModule: undefined,
   middleware: [],
 }
 
@@ -74,7 +70,7 @@ const start = (options: EofolDevServerOptions): void => {
   // Log errors on logLevel <= 2
   // Log everything on logLevel === 3
 
-  const HOOKED_HTML = read(path.join(__dirname, FILENAME_HOOKED_HTML), "utf8")
+  const HOOKED_HTML = read(path.join(__dirname, FILENAME_HOOKED_HTML))
 
   const escape = (html: string | null) => {
     return String(html ?? "")
@@ -83,8 +79,6 @@ const start = (options: EofolDevServerOptions): void => {
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
   }
-
-  // Serve statically files
 
   const serve = (root: string) => {
     let isFile = false
@@ -100,7 +94,7 @@ const start = (options: EofolDevServerOptions): void => {
     return (req, res, next) => {
       if (req.method !== "GET" && req.method !== "HEAD") return next()
       // @TODO
-      const reqpath = isFile ? "" : url.parse(req.url).pathname
+      const reqpath = url.parse(req.url).pathname
       const hasNoOrigin = !req.headers.origin
       const injectCandidates = [new RegExp("</body>", "i"), new RegExp("</svg>"), new RegExp("</head>", "i")]
       let injectTag: string | RegExp | null = null
@@ -149,7 +143,7 @@ const start = (options: EofolDevServerOptions): void => {
       const inject = (stream) => {
         if (injectTag) {
           // @TODO: Extract
-          res.setHeader("Content-Length", HOOKED_HTML.length + res.getHeader("Content-Length"))
+          // res.setHeader("Content-Length", HOOKED_HTML.length + res.getHeader("Content-Length"))
           stream.pipe.pipe = (res: string) => {
             // @ts-ignore
             stream.pipe.call(stream, es.replace(new RegExp(injectTag, "i"), HOOKED_HTML + injectTag)).pipe(res)
@@ -184,31 +178,22 @@ const start = (options: EofolDevServerOptions): void => {
     }
   }
 
-  const serveHandler = serve(optionsImpl.root ?? "./")
+  const serveHandler = serve(optionsImpl.root ?? ".")
   const wait = optionsImpl.wait ?? 100
 
   // Serve directory listing on empty root
 
+  /*
   if (optionsImpl.cors) {
     // @TODO
     // @ts-ignore
-    app.use(cors)({
+    app.use(require("cors"))({
       origin: true,
       credentials: true,
+      url: "/",
     })
   }
-
-  if (optionsImpl.httpsModule) {
-    try {
-      require.resolve(optionsImpl.httpsModule)
-    } catch (e) {
-      console.error(`The specified https module: "${optionsImpl.httpsModule}" was not found.`)
-      console.error("Did you by chance forget to run " + `"npm install ${optionsImpl.httpsModule}"?`)
-      return
-    }
-  } else {
-    optionsImpl.httpsModule = "https"
-  }
+*/
 
   if (optionsImpl.htpasswd) {
     const auth = require("http-auth")
@@ -216,7 +201,7 @@ const start = (options: EofolDevServerOptions): void => {
       realm: "Please authorize",
       file: optionsImpl.htpasswd,
     })
-    app.use(auth.connect(basic))
+    //  app.use(auth.connect(basic))
   }
 
   // @TODO
@@ -230,113 +215,132 @@ const start = (options: EofolDevServerOptions): void => {
 
   if (optionsImpl.mount) {
     optionsImpl.mount.forEach((mountRule) => {
-      const mountPath = path.resolve(process.cwd(), mountRule[1])
+      // const mountPath = path.resolve(process.cwd(), mountRule[1])
+      const mountPath = path.resolve(process.cwd(), mountRule)
       if (!options.watch) watchPaths.push(mountPath)
-      app.use(mountRule[0], serve(mountPath))
-      if (typeof optionsImpl.logLevel === "number" && optionsImpl.logLevel >= 1)
-        console.log('Mapping %s to "%s"', mountRule[0], mountPath)
-    })
-  }
-
-  if (optionsImpl.proxy) {
-    optionsImpl.proxy.forEach((proxyRule) => {
       // @TODO
-      const proxyOpts = url.parse(proxyRule[1])
-      // @ts-ignore
-      proxyOpts.via = true
-      // @ts-ignore
-      proxyOpts.preserveHost = true
-      app.use(proxyRule[0], require("proxy-middleware")(proxyOpts))
-      if (typeof optionsImpl.logLevel === "number" && optionsImpl.logLevel >= 1)
-        console.log('Mapping %s to "%s"', proxyRule[0], proxyRule[1])
+      // app.use(mountRule[0], serve(mountPath))
+      app.use(mountRule, serve(mountRule))
     })
-  }
-  app
-    .use(serveHandler)
-    .use(entryPoint(serveHandler, optionsImpl.fallback))
+
+    if (optionsImpl.proxy) {
+      optionsImpl.proxy.forEach((proxyRule) => {
+        // @TODO
+        const proxyOpts = url.parse(proxyRule[1])
+        // @ts-ignore
+        proxyOpts.via = true
+        // @ts-ignore
+        proxyOpts.preserveHost = true
+        // @TODO
+        // app.use(proxyRule[0], require("proxy-middleware")(proxyOpts))
+        if (typeof optionsImpl.logLevel === "number" && optionsImpl.logLevel >= 1)
+          console.log('Mapping %s to "%s"', proxyRule[0], proxyRule[1])
+      })
+    }
+
+    app.use(serveHandler)
+
+    /*
+    app.use("/hello", (req, res, next) => {
+      console.log(`HELLO WORLD ${req}`)
+      res.end("hello world")
+    })
+*/
+
+    // .use(entryPoint(serveHandler, optionsImpl.fallback))
     // @TODO
     // @ts-ignore
-    .use(serveIndex(optionsImpl.root ?? "./", { icons: true }))
+    // .use(serveIndex(optionsImpl.root ?? ".", { icons: true }))
 
-  let server
-  let protocol
+    let server
+    let protocol
 
-  if (optionsImpl.https !== null) {
-    let httpsConfig = optionsImpl.https
-    if (typeof optionsImpl.https === "string") {
-      httpsConfig = require(path.resolve(process.cwd(), optionsImpl.https))
+    // eslint-disable-next-line no-undef
+    const dirname = __dirname
+
+    const httpsConfig = {
+      key: readFileSync(path.join(dirname, "..", "/" + "cert", "/" + "eofol-dev-server-key.pem")),
+      cert: readFileSync(path.join(dirname, "..", "/" + "cert", "/" + "eofol-dev-server-server-cert.pem")),
+
+      ca: [readFileSync(path.join(dirname, "..", "/" + "cert", "/" + "eofol-dev-server-client-cert.pem"))],
+
+      passphrase: "EofolDevServerPasssword1122",
     }
-    server = require(optionsImpl.httpsModule).createServer(httpsConfig, app)
-    protocol = "https"
-  } else {
-    server = http.createServer(app)
-    protocol = "http"
-  }
 
-  const serverProps: { watcher?: any; server?: any } = {}
-
-  const shutdown = () => {
-    if (serverProps.watcher) {
-      serverProps.watcher.close()
-    }
-    if (serverProps.server) serverProps.server.close()
-  }
-
-  server.addListener("error", (e: { code: string }) => {
-    if (e.code === "EADDRINUSE") {
-      const serveURL = `${protocol}://${optionsImpl.host}:${optionsImpl.port}`
-      console.log("%s is already in use. Trying another port. ", serveURL)
-      setTimeout(() => {
-        server.listen(0, optionsImpl.host)
-        // @TODO Extract
-      }, 1000)
+    if (optionsImpl.https) {
+      server = require("https").createServer(httpsConfig, app)
+      protocol = "https"
     } else {
-      console.error(e.toString())
-      shutdown()
-    }
-  })
-
-  // Handle successful server
-  server.addListener("listening", () => {
-    serverProps.server = server
-
-    const address = server.address()
-    // const serveHost = address.address === "0.0.0.0" ? "127.0.0.1" : address.address
-    const openHost = optionsImpl.host === "0.0.0.0" ? "127.0.0.1" : optionsImpl.host
-
-    // const serveURL = `${protocol}://${serveHost}:${address.port}`
-    const openURL = `${protocol}://${openHost}:${address.port}`
-
-    // let serveURLs = [optionsImpl.serveUrl]
-    if (typeof optionsImpl.logLevel === "number" && optionsImpl.logLevel > 2 && address.address === "0.0.0.0") {
-      const ifaces = os.networkInterfaces()
-      Object.keys(ifaces)
-        .map((iface) => ifaces[iface])
-        .reduce((data, addresses) => {
-          addresses
-            ?.filter((addr) => addr.family === "IPv4")
-            ?.forEach((addr) => {
-              data?.push(addr)
-            })
-          return data
-        }, [])
-        ?.map((addr) => {
-          return `${protocol}://${addr.address}:${address.port}`
-        })
+      server = http.createServer(app)
+      protocol = "http"
     }
 
-    // @TODO
-    const openPath =
-      options.open === undefined || options.open === true
-        ? ""
-        : options.open === null || options.open === false
-          ? null
-          : options.open
+    const serverProps: { watcher?: any; server?: any } = {}
 
-    if (openPath !== null && optionsImpl.browser) {
-      // @ts-ignore
-      open(openURL + openPath, { app: optionsImpl.browser })
+    const shutdown = () => {
+      if (serverProps.watcher) {
+        serverProps.watcher.close()
+      }
+      if (serverProps.server) serverProps.server.close()
     }
+
+    server.addListener("error", (e: { code: string }) => {
+      if (e.code === "EADDRINUSE") {
+        const serveURL = `${protocol}://${optionsImpl.host}:${optionsImpl.port}`
+        console.log("%s is already in use. Trying another port. ", serveURL)
+        setTimeout(() => {
+          server.listen(0, optionsImpl.host)
+          // @TODO Extract
+        }, 1000)
+      } else {
+        console.error(e.toString())
+        shutdown()
+      }
+    })
+
+    // Handle successful server
+    server.addListener("listening", () => {
+      serverProps.server = server
+
+      const address = server.address()
+      // const serveHost = address.address === "0.0.0.0" ? "127.0.0.1" : address.address
+      const openHost = optionsImpl.host === "0.0.0.0" ? "127.0.0.1" : optionsImpl.host
+
+      // const serveURL = `${protocol}://${serveHost}:${address.port}`
+      const openURL = `${protocol}://${openHost}:${address.port}`
+
+      //  console.log("LISTENING", server, openURL)
+      // let serveURLs = [optionsImpl.serveUrl]
+      if (typeof optionsImpl.logLevel === "number" && optionsImpl.logLevel > 2 && address.address === "0.0.0.0") {
+        const ifaces = os.networkInterfaces()
+        Object.keys(ifaces)
+          .map((iface) => ifaces[iface])
+          .reduce((data, addresses) => {
+            addresses
+              ?.filter((addr) => addr.family === "IPv4")
+              ?.forEach((addr) => {
+                data?.push(addr)
+              })
+            return data
+          }, [])
+          ?.map((addr) => {
+            return `${protocol}://${addr.address}:${address.port}`
+          })
+      }
+
+      // @TODO
+      const openPath =
+        options.open === undefined || options.open === true
+          ? ""
+          : options.open === null || options.open === false
+            ? null
+            : options.open
+
+      if (openPath !== null && optionsImpl.browser) {
+        // @ts-ignore
+        open(openURL + openPath, { app: optionsImpl.browser })
+      }
+    })
 
     // Handle log init (add util/logger)
 
@@ -414,7 +418,7 @@ const start = (options: EofolDevServerOptions): void => {
       // cleanHot()
       // return await compile(true).then(() => {
       updateChanges(x)
-      console.log(success(`Recompiled! Servin app now at ${SERVE_URL}.`))
+      console.log(success(`Recompiled! Serving app now at ${SERVE_URL}.`))
       // })
     }
 
@@ -460,7 +464,7 @@ const start = (options: EofolDevServerOptions): void => {
     wp.on("remove", handleRemove)
 
     console.log(success(`Serving app now at ${SERVE_URL}.`))
-  })
+  }
 }
 
 // Handle exit (connect)
