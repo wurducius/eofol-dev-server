@@ -1,11 +1,4 @@
-const fs = require("fs")
-const path = require("path")
-const { exists, rm } = require("../src/util")
-
-const PATH_CWD = fs.realpathSync(process.cwd())
-
-const DIRNAME_DIST = "dist"
-const PATH_DIST = path.resolve(PATH_CWD, DIRNAME_DIST)
+const { exists, rm, PATH_DIST } = require("../src/util")
 
 const cleanDir = (target) => {
   if (exists(target)) {

@@ -1,10 +1,10 @@
 {
   "name": "eofol-dev-server",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Web development server for React and Eofol with hot reload",
-  "main": "dist/eofol-dev-server.js",
+  "main": "dist/src/eofol-dev-server.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && xcopy /-I hooked.html dist\\src\\hooked.html && xcopy /-I cert dist\\cert",
     "clean": "node ./scripts/clean.js",
     "reinstall": "node ./scripts/reinstall.js",
     "reinstall-f": "node ./scripts/reinstall.js -c",
