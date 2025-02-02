@@ -7,7 +7,6 @@ import http from "http"
 import os from "node:os"
 import path from "node:path"
 import send from "send"
-import serveIndex from "serve-index"
 import url from "url"
 import Watchpack from "watchpack"
 import { readFileSync } from "fs"
@@ -387,9 +386,9 @@ const start = (options: EofolDevServerOptions): void => {
       const cssChange = path.extname(changePath) === ".css" && !optionsImpl.noCSSInject
       if (typeof optionsImpl.logLevel === "number" && optionsImpl.logLevel >= 1) {
         if (cssChange) {
-          console.log("CSS change detected", changePath)
+          // console.log("CSS change detected", changePath)
         } else {
-          console.log("Change detected, changePath")
+          // console.log("Change detected")
         }
         clients.forEach((ws) => {
           if (ws) ws.send(cssChange ? "refreshcss" : "reload")
@@ -408,7 +407,7 @@ const start = (options: EofolDevServerOptions): void => {
 
     const listOfDirectories = [DIRNAME_SRC]
 
-    const SERVE_URL = `${optionsImpl.https ? "https" : "http"}://${optionsImpl.host}:${optionsImpl.port}`
+    const SERVE_URL = `${optionsImpl.https ? "https" : "http"}://${optionsImpl.host === "0.0.0.0" ? "localhost" : optionsImpl.host}:${optionsImpl.port}`
 
     // Bluebird, checksum & hot-reload
 
